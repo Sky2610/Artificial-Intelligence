@@ -1,0 +1,380 @@
+#Brian Lu
+#bl2456
+#CS 4613 Artificial Intelligence Project 1
+
+
+import heapq;
+import copy;
+
+class Node:
+    def __init__(self, currState, parentNode, action, pathCost, goalDistance):
+        #current state of the board
+        self.state = currState;
+
+        #reference to the parent node
+        self.parent = parentNode;
+
+        #action taken to get to this node
+        self.action = action;
+
+        #total cost of steps already taken or g(n)
+        self.pathCost = pathCost;
+
+        #distance to goal or h(n)
+        self.goalDistance = goalDistance;
+
+        #totalCost
+        self.totalCost = self.pathCost + self.goalDistance;
+
+    def __gt__(self, other):
+        #return (self.pathCost + self.goalDistance) > (other.pathCost + other.goalDistance);
+        return self.totalCost > other.totalCost;
+    def __lt__(self, other):
+        #return (self.pathCost + self.goalDistance) < (other.pathCost + other.goalDistance);
+        return self.totalCost < other.totalCost;
+    def __eq__(self, other):
+        #return (self.pathCost + self.goalDistance) == (other.pathCost + other.goalDistance);
+        return self.totalCost == other.totalCost;
+
+
+
+#This function will read an input file and store the tile positions of both
+#the initial state and the goal state and return that data.
+def readFile(filename):
+    myFile = open(filename, "r");
+    initialState = [];
+    goalState = [];
+    for row in range(4):
+        initialState.append(myFile.readline().split());#getting each row
+        initialState[row] = list(map(int, initialState[row]));#converting each tile # to int
+    emptyLine = myFile.readline();
+    for row in range(4):
+        goalState.append(myFile.readline().split());
+        goalState[row] = list(map(int, goalState[row]));
+    #print(initialState);
+    #print(goalState);
+    myFile.close();
+    return initialState, goalState;
+
+#This function will take in a tile's current position along with its position in the goal state to
+#determine a heuristic cost to the goal state
+def manhattanDistance(currPosition, goalPosition):
+    return abs(goalPosition[0] - currPosition[0]) + abs(goalPosition[1] - currPosition[1]);
+
+#This function calculates the total manhattan distance cost (h(n)) given the current state and goal state
+def manhattanHeuristic(currState, goalState):
+    totalDistance = 0;
+    for currRow in range(4):
+        for currCol in range(4):
+            tileNum = currState[currRow][currCol]
+            if tileNum == goalState[currRow][currCol]:
+                #since many tiles are already in their goal state position, check first to eliminate needless loops
+                continue;
+            if tileNum != 0:
+                found = False;
+                for goalRow in range(4):
+                    for goalCol in range(4):
+                        if tileNum == goalState[goalRow][goalCol]:
+                            totalDistance += manhattanDistance((currRow, currCol), (goalRow, goalCol));
+                            found = True;
+                            break;
+                            #no need to keep looping once a match is found
+                    if found == True:
+                        break;
+                        #go to next currrent Tile, since this tile's location has been found
+    return totalDistance;
+                            
+#initial, goal = readFile("Input1.txt")
+#print(manhattanHeuristic(initial, goal));
+
+def spaceTileCoord(currState):
+    for row in range(4):
+        for col in range(4):
+            if currState[row][col] == 0:
+                return (row, col);
+
+def aStarSearch(initialState, goalState):
+    #frontier is a list turned into a heap (priorityQueue) to keep track of which node to inspect and possibly expand next
+    frontier = [];
+    heapq.heapify(frontier);
+
+    #keeps track of states already explored
+    exploredStates = [];
+    rootNode = Node(initialState, None, None, 0, manhattanHeuristic(initialState, goalState));
+    
+    #initializing frontier with root node
+    heapq.heappush(frontier, rootNode);
+    numOfNodes = 1;
+
+    while frontier:
+        currNode = heapq.heappop(frontier);
+
+        #is the current node state the goal state?
+        if currNode.state == goalState:
+            return currNode, numOfNodes;
+
+        #adding current Node state to explored list
+        exploredStates.append(currNode.state);
+
+        spaceCoord = spaceTileCoord(currNode.state);
+        row = spaceCoord[0];
+        column = spaceCoord[1];
+
+        #Space is not in row 1, so "Up" is an action option
+        if row > 0:
+            upState = copy.deepcopy(currNode.state);
+            upState[row][column], upState[row-1][column] = upState[row-1][column], upState[row][column];
+            if upState not in exploredStates:
+                #do not revisit explored states
+                upNode = Node(upState, currNode, "U", currNode.pathCost + 1, manhattanHeuristic(upState, goalState));
+                heapq.heappush(frontier, upNode);
+                numOfNodes += 1;
+
+        #Space is not in row 4, so "Down" is an action option
+        if row < 3:
+            downState = copy.deepcopy(currNode.state);
+            downState[row][column], downState[row+1][column] = downState[row+1][column], downState[row][column]
+            if downState not in exploredStates:
+                downNode = Node(downState, currNode, "D", currNode.pathCost + 1, manhattanHeuristic(downState, goalState));
+                heapq.heappush(frontier, downNode);
+                numOfNodes += 1;
+
+        #Space is not in column 1, so  "Left" is an action option
+        if column > 0:
+            leftState = copy.deepcopy(currNode.state);
+            leftState[row][column], leftState[row][column-1] = leftState[row][column-1], leftState[row][column]
+            if leftState not in exploredStates:
+                leftNode = Node(leftState, currNode, "L", currNode.pathCost + 1, manhattanHeuristic(leftState, goalState));
+                heapq.heappush(frontier, leftNode);
+                numOfNodes += 1;
+            
+        #Space is not in column 4, so "Right" is an action option
+        if column < 3:
+            rightState = copy.deepcopy(currNode.state);
+            rightState[row][column], rightState[row][column+1] = rightState[row][column+1], rightState[row][column]
+            if rightState not in exploredStates:
+                rightNode = Node(rightState, currNode, "R", currNode.pathCost + 1, manhattanHeuristic(rightState, goalState));
+                heapq.heappush(frontier, rightNode);
+                numOfNodes += 1;
+    return "No Solution Found";
+
+#This function will return the sequence of actions taken from the root node to the goal node
+def actionSequence(goalNode, initialState):
+    currNode = goalNode;
+    prevNode = currNode.parent;
+    actionSeq = [];
+    while currNode.state != initialState:
+        actionSeq.insert(0, currNode.action);
+        currNode, prevNode = prevNode, prevNode.parent;
+    return actionSeq;
+
+#This function will return the costs of each Node in the path from root node to goal node
+#also used to get the depth level of solution
+def totalValues(goalNode, initialState):
+    depthlvl = 0;
+    currNode = goalNode;
+    prevNode = currNode.parent;
+    costSeq = [];
+    while currNode.state != initialState:
+        costSeq.insert(0, currNode.totalCost);
+        currNode, prevNode = prevNode, prevNode.parent;
+        depthlvl += 1;
+    costSeq.insert(0, currNode.totalCost);
+    return depthlvl, costSeq;
+
+
+#The main function will print the desired output given that text files are in the same directory as this program
+def main():
+    #Input 1
+    
+    #get the initial board and goal board from the text file
+    initialState1, goalState1 = readFile("Input1.txt");
+    
+    #use A* Search function to get the node found with the goal state along with the number of generated nodes
+    goalNode1, numOfNodes1 = aStarSearch(initialState1, goalState1);
+
+    #print onto Output1.txt
+    #printing initial state
+    file1 = open("Output1.txt", "w");
+    for row in range(4):
+        for col in range(4):
+            file1.write(str(initialState1[row][col]) + " ");
+        file1.write("\n");
+    file1.write("\n");
+
+    #printing goal state
+    for row in range(4):
+        for col in range(4):
+            file1.write(str(goalState1[row][col]) + " ");
+        file1.write("\n");
+    file1.write("\n");
+
+    #printing depth level
+    depthLevel1, costSeq1 = totalValues(goalNode1, initialState1);
+    file1.write(str(depthLevel1) + "\n");
+    
+    #printing number of generated nodes
+    file1.write(str(numOfNodes1) + "\n");
+
+    #printing action sequence
+    actionSeq1 = actionSequence(goalNode1, initialState1);
+    for action in actionSeq1:
+        file1.write(action + " ");
+    file1.write("\n");
+
+    #printing f(n) values of nodes along the solution path
+    for cost in costSeq1:
+        file1.write(str(cost) + " ");
+
+    file1.close();
+    ################################################################################################
+    #Input 2
+
+    #get the initial board and goal board from the text file
+    initialState2, goalState2 = readFile("Input2.txt");
+    
+    #use A* Search function to get the node found with the goal state along with the number of generated nodes
+    goalNode2, numOfNodes2 = aStarSearch(initialState2, goalState2);
+
+    #print onto Output2.txt
+    #printing initial state
+    file2 = open("Output2.txt", "w");
+    for row in range(4):
+        for col in range(4):
+            file2.write(str(initialState2[row][col]) + " ");
+        file2.write("\n");
+    file2.write("\n");
+
+    #printing goal state
+    for row in range(4):
+        for col in range(4):
+            file2.write(str(goalState2[row][col]) + " ");
+        file2.write("\n");
+    file2.write("\n");
+
+    #printing depth level
+    depthLevel2, costSeq2 = totalValues(goalNode2, initialState2);
+    file2.write(str(depthLevel2) + "\n");
+    
+    #printing number of generated nodes
+    file2.write(str(numOfNodes2) + "\n");
+
+    #printing action sequence
+    actionSeq2 = actionSequence(goalNode2, initialState2);
+    for action in actionSeq2:
+        file2.write(action + " ");
+    file2.write("\n");
+
+    #printing f(n) values of nodes along the solution path
+    for cost in costSeq2:
+        file2.write(str(cost) + " ");
+
+    file2.close();
+
+    ################################################################################################
+    #Input 3
+
+    #get the initial board and goal board from the text file
+    initialState3, goalState3 = readFile("Input3.txt");
+    
+    #use A* Search function to get the node found with the goal state along with the number of generated nodes
+    goalNode3, numOfNodes3 = aStarSearch(initialState3, goalState3);
+
+    #print onto Output3.txt
+    #printing initial state
+    file3 = open("Output3.txt", "w");
+    for row in range(4):
+        for col in range(4):
+            file3.write(str(initialState3[row][col]) + " ");
+        file3.write("\n");
+    file3.write("\n");
+
+    #printing goal state
+    for row in range(4):
+        for col in range(4):
+            file3.write(str(goalState3[row][col]) + " ");
+        file3.write("\n");
+    file3.write("\n");
+
+    #printing depth level
+    depthLevel3, costSeq3 = totalValues(goalNode3, initialState3);
+    file3.write(str(depthLevel3) + "\n");
+    
+    #printing number of generated nodes
+    file3.write(str(numOfNodes3) + "\n");
+
+    #printing action sequence
+    actionSeq3 = actionSequence(goalNode3, initialState3);
+    for action in actionSeq3:
+        file3.write(action + " ");
+    file3.write("\n");
+
+    #printing f(n) values of nodes along the solution path
+    for cost in costSeq3:
+        file3.write(str(cost) + " ");
+
+    file3.close();
+
+    ################################################################################################
+    #Input 4
+
+    #get the initial board and goal board from the text file
+    initialState4, goalState4 = readFile("Input4.txt");
+    
+    #use A* Search function to get the node found with the goal state along with the number of generated nodes
+    goalNode4, numOfNodes4 = aStarSearch(initialState4, goalState4);
+
+    #print onto Output4.txt
+    #printing initial state
+    file4 = open("Output4.txt", "w");
+    for row in range(4):
+        for col in range(4):
+            file4.write(str(initialState4[row][col]) + " ");
+        file4.write("\n");
+    file4.write("\n");
+
+    #printing goal state
+    for row in range(4):
+        for col in range(4):
+            file4.write(str(goalState4[row][col]) + " ");
+        file4.write("\n");
+    file4.write("\n");
+
+    #printing depth level
+    depthLevel4, costSeq4 = totalValues(goalNode4, initialState4);
+    file4.write(str(depthLevel4) + "\n");
+    
+    #printing number of generated nodes
+    file4.write(str(numOfNodes4) + "\n");
+
+    #printing action sequence
+    actionSeq4 = actionSequence(goalNode4, initialState4);
+    for action in actionSeq4:
+        file4.write(action + " ");
+    file4.write("\n");
+
+    #printing f(n) values of nodes along the solution path
+    for cost in costSeq4:
+        file4.write(str(cost) + " ");
+
+    file4.close();
+
+main();
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
